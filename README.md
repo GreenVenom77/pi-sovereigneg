@@ -1,7 +1,7 @@
 # pi-sovereigneg
 
 [![npm](https://img.shields.io/npm/v/pi-sovereigneg)](https://www.npmjs.com/package/pi-sovereigneg)
-[![CI](https://github.com/YOUR_GITHUB_USERNAME/pi-sovereigneg/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/pi-sovereigneg/actions/workflows/ci.yml)
+[![CI](https://github.com/YOUR_GITHUB_USERNAME/pi-sovereigneg/actions/workflows/ci.yml/badge.svg)](https://github.com/GreenVenom77/pi-sovereigneg/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/pi-sovereigneg)](LICENSE)
 
 Use [SovereignEG](https://sovereigneg.com) (Egyptian, EGP-billed AI model routing) as a first-class provider in the
