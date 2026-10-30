@@ -40,9 +40,9 @@ interface Group {
   items: PickerItem[];
 }
 type Row =
-  | { t: "smart" }
-  | { t: "group"; g: Group; open: boolean }
-  | { t: "item"; it: PickerItem; g: Group };
+| { t: "smart" }
+| { t: "group"; g: Group; open: boolean }
+| { t: "item"; it: PickerItem; g: Group };
 
 const byPrice = (a: PickerItem, b: PickerItem) => (a.outPrice ?? 0) - (b.outPrice ?? 0) || a.id.localeCompare(b.id);
 const REC_ORDER = { economy: 0, balanced: 1, top: 2 } as const;
@@ -97,7 +97,8 @@ export async function openPicker(
   items: PickerItem[],
   opts: { favorites: Set<string>; onToggleFavorite: (id: string) => void },
 ): Promise<string | null> {
-  return ctx.ui.custom<string | null>((tui: any, theme: any, _kb: any, done: (v: string | null) => void) => {
+  // `ctx` is typed `any` here, so no type argument on the call; the result is cast instead.
+  return ctx.ui.custom((tui: any, theme: any, _kb: any, done: (v: string | null) => void) => {
     let view: View = "category";
     let query = "";
     let cursor = 0;
@@ -182,7 +183,7 @@ export async function openPicker(
       lines.push(
         truncateToWidth(
           VIEWS.map((v) => (v === view ? accent(bold(`[${VIEW_LABEL[v]}]`)) : dim(` ${VIEW_LABEL[v]} `))).join(" "),
-          width,
+                        width,
         ),
       );
       lines.push(truncateToWidth(`${muted("Search:")} ${query}${accent("▏")}`, width));
@@ -257,13 +258,13 @@ export async function openPicker(
         }
       } else if (!data.startsWith("\x1b") && /^[^\x00-\x1f\x7f]+$/u.test(data)) {
         query += data; // printable text (also pasted)
-        cursor = 0;
-        top = 0;
-        rebuild();
+  cursor = 0;
+  top = 0;
+  rebuild();
       } else return;
       tui.requestRender();
     }
 
     return { render, invalidate: () => {}, handleInput };
-  });
+  }) as Promise<string | null>;
 }
