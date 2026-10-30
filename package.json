@@ -1,6 +1,6 @@
 {
   "name": "pi-sovereigneg",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SovereignEG for pi: one-step API-key setup, smart per-request model routing, free-allowance awareness, live EGP usage and a collapsible model picker. Unofficial and fully vibe-coded: read the source before use.",
   "type": "module",
   "license": "MIT",
@@ -35,8 +35,7 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
-    "typecheck": "tsc --noEmit",
-    "pack:check": "npm pack --dry-run"
+    "typecheck": "tsc --noEmit"
   },
   "pi": {
     "extensions": [

@@ -5,7 +5,6 @@ on:
 
 permissions:
   contents: write   # create the GitHub release
-  id-token: write   # npm provenance
 
 jobs:
   release:
@@ -15,17 +14,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
       - name: Tag must match package.json version
         run: |
           V=$(node -p "require('./package.json').version")
           [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != package.json v$V"; exit 1; }
       - run: npm install
       - run: npm test
-      - name: Publish to npm
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: GitHub release
         run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
         env:

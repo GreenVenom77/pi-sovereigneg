@@ -23,4 +23,4 @@ pi -e ./src/index.ts   # try it in pi without installing
 
 ## Releasing (maintainers)
 1. Move the Unreleased notes to a new version in `CHANGELOG.md`; bump `version` in `package.json`.
-2. `git tag vX.Y.Z && git push --tags`. The release workflow tests, publishes to npm and creates the GitHub release.
+2. `git tag vX.Y.Z && git push --tags`. The release workflow tests the code and creates the GitHub release (there is no npm publish).

@@ -1,8 +1,8 @@
 # pi-sovereigneg
 
-[![npm](https://img.shields.io/npm/v/pi-sovereigneg)](https://www.npmjs.com/package/pi-sovereigneg)
+[![release](https://img.shields.io/github/v/release/GreenVenom77/pi-sovereigneg)](https://github.com/GreenVenom77/pi-sovereigneg/releases)
 [![CI](https://github.com/GreenVenom77/pi-sovereigneg/actions/workflows/ci.yml/badge.svg)](https://github.com/GreenVenom77/pi-sovereigneg/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/pi-sovereigneg)](LICENSE)
+[![license](https://img.shields.io/github/license/GreenVenom77/pi-sovereigneg)](LICENSE)
 
 Use [SovereignEG](https://sovereigneg.com) (Egyptian, EGP-billed AI model routing) as a first-class provider in the
 [pi coding agent](https://pi.dev): one-step sign-in, smart per-request model routing, a collapsible model picker,
@@ -88,21 +88,27 @@ and live free/paid usage in your footer.
 
 Requires [pi](https://pi.dev) and Node.js ≥ 22.6.
 
+Installed from GitHub only (not published to npm). Pick one:
+
 ```bash
-# from npm
-pi install npm:pi-sovereigneg
+# Always up to date: tracks the newest commit on the default branch
+pi install git:github.com/GreenVenom77/pi-sovereigneg
 
-# or straight from GitHub (pin a tag for stability)
-pi install git:github.com/YOUR_GITHUB_USERNAME/pi-sovereigneg@v0.1.0
+# Pinned to a release: stays on that version until you change it
+pi install git:github.com/GreenVenom77/pi-sovereigneg@v0.1.1
 
-# or try it for one session without installing
-pi -e npm:pi-sovereigneg
+# Try it for one session without installing
+pi -e git:github.com/GreenVenom77/pi-sovereigneg
 
-# or from a local checkout
+# From a local checkout
 pi install ./pi-sovereigneg
 ```
 
-Update with `pi update`, remove with `pi remove npm:pi-sovereigneg`.
+- **Always up to date:** `pi update` pulls the latest commit. You get fixes quickly, and also changes that
+  haven't been released yet.
+- **Pinned:** `pi update` leaves a pinned install alone. To move to a newer release, install again with the new tag
+  (see [Releases](https://github.com/GreenVenom77/pi-sovereigneg/releases)).
+- Remove either with `pi remove git:github.com/GreenVenom77/pi-sovereigneg`.
 
 ## Quick start
 
@@ -219,7 +225,7 @@ How it stays current:
 - **When the message ends**, the estimate is replaced by the **exact** usage and cost.
 - **Between server refreshes**, the free-allowance counter keeps counting down locally, and the router uses that live
   number, so it stops picking the free model as soon as the allowance is used up.
-- **While the agent is working**, `/v1/credits` is re-read every `statusRefreshSeconds` (default 15 s), and once more
+- **While the agent is working**, `/v1/credits` is re-read every `statusRefreshSeconds` (default 5 s), and once more
   when the agent finishes. The server's numbers always win over local estimates.
 
 Turn the streaming estimate off with `"liveStatus": false`, and the polling with `"statusRefreshSeconds": 0`.
@@ -238,7 +244,7 @@ Optional. Create `~/.pi/agent/sovereigneg.json` (all keys optional):
   "guardHiddenThinking": true,
   "sessionBudgetEgp": 0,
   "liveStatus": true,
-  "statusRefreshSeconds": 15,
+  "statusRefreshSeconds": 5,
   "pinned": ["gemini", "deepseek"],
   "favorites": [],
   "tiers": {
@@ -259,7 +265,7 @@ Optional. Create `~/.pi/agent/sovereigneg.json` (all keys optional):
 | `guardHiddenThinking` | `true` | Send `reasoning_effort:"none"` to Claude 5.x when pi sends no effort |
 | `sessionBudgetEgp` | `0` | Ask for confirmation once session spend reaches this (`0` = off); also settable with `/sovereign budget` |
 | `liveStatus` | `true` | Update the footer while tokens stream (estimate) |
-| `statusRefreshSeconds` | `15` | Re-read credits this often while the agent works (`0` = off) |
+| `statusRefreshSeconds` | `5` | Re-read credits this often while the agent works (`0` = off) |
 | `pinned` | `[]` | Regexes (matched on model id) always shown in `/model` in curated mode |
 | `favorites` | `[]` | Starred model ids (managed by `Ctrl+F` in `/sm`) |
 | `tiers` | built-in | Per-tier ordered regex preference lists for the router |
@@ -330,7 +336,7 @@ pi -e ./src/index.ts   # try it in pi without installing
 ```
 
 Layout: `src/index.ts` (provider, router, usage, commands) · `src/picker.ts` (model tree) · `test/` (tests).
-See [CONTRIBUTING.md](CONTRIBUTING.md). Releases: bump the version, tag `vX.Y.Z`, push the tag; CI tests, publishes to npm
+See [CONTRIBUTING.md](CONTRIBUTING.md). Releases: bump the version, tag `vX.Y.Z`, push the tag; CI tests the code
 and creates the GitHub release.
 
 ### Ideas / roadmap

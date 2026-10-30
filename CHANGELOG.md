@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [0.1.1] - 2026-10-30
+
+### Changed
+- Footer usage now refreshes from `/v1/credits` every **5 s** while the agent works (was 15 s), so it feels live.
+  Polls no longer overlap if the API is slow. Set `statusRefreshSeconds` to change it (`0` = off).
+- Distribution is **GitHub only**: the npm badge, `npm:` install commands and the npm publish step are gone.
+- README: install shows both options, always-latest (`git:github.com/GreenVenom77/pi-sovereigneg`) and pinned to a release (`@v0.1.1`).
+
+### Fixed
+- README license badge showed "package not found"; it now reads the license from GitHub, and the version badge shows the latest GitHub release.
+
 ## [0.1.0] - 2026-10-29
 
 First public release.

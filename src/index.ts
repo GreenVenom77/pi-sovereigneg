@@ -88,7 +88,7 @@ const DEFAULT_CONFIG: Config = {
   pinned: [],
   recent: [],
   liveStatus: true,
-  statusRefreshSeconds: 15,
+  statusRefreshSeconds: 5,
 };
 
 // Ordered preferences; first one that exists, supports tools, fits context and budget wins.
@@ -747,9 +747,16 @@ export default async function (pi: ExtensionAPI) {
   pi.on("agent_start", async (_e: any, ctx: any) => {
     stopPolling();
     if (cfg.statusRefreshSeconds <= 0) return;
+    let inflight = false; // never stack requests if the API is slower than the interval
     poll = setInterval(async () => {
-      await refreshCredits(ctx, true);
-      status(ctx, false);
+      if (inflight) return;
+      inflight = true;
+      try {
+        await refreshCredits(ctx, true);
+        status(ctx, false);
+      } finally {
+        inflight = false;
+      }
     }, cfg.statusRefreshSeconds * 1000);
     poll.unref?.();
   });
