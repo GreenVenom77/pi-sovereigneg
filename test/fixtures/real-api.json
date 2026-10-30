@@ -1,0 +1,198 @@
+{
+  "_comment": "Real /v1/models, /v1/credits and /v1/usage responses from a Student-plan account (2026-10-29), with per-request ids removed.",
+  "models": [
+    {
+      "id": "SovereignEG/Qwen3.8-27B-FP8",
+      "object": "model",
+      "owned_by": "SovereignEG",
+      "display_name": "Qwen3.8-27B-FP8",
+      "provider": "Alibaba",
+      "provider_handle": "Qwen",
+      "modality": "chat",
+      "context_window": 131072,
+      "max_output_tokens": null,
+      "description": "Following the widespread community adoption of the Qwen3.5 a…",
+      "pricing": {
+        "input_per_1m_egp": 8.41,
+        "output_per_1m_egp": 67.29,
+        "cache_read_per_1m_egp": 1.29
+      },
+      "engines": [
+        "vllm"
+      ],
+      "healthy_backends": 1,
+      "total_backends": 1,
+      "status": "live",
+      "source": "sovereign",
+      "weights_type": "open_weights",
+      "visibility": "public",
+      "card_url": "https://huggingface.co/Qwen/Qwen3.8-27B-FP8",
+      "benchmarks": null,
+      "published_at": "2026-08-26T14:15:54.557110+00:00",
+      "deprecated_at": null,
+      "deprecation_notice": null,
+      "sunset_at": null,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "n",
+        "parallel_tool_calls",
+        "presence_penalty",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "capabilities": {
+        "supports_tools": true,
+        "supports_streaming": true,
+        "supports_json_schema": true,
+        "supports_temperature": true
+      }
+    },
+    {
+      "id": "Qwen/Qwen3-0.6B",
+      "object": "model",
+      "owned_by": "Alibaba",
+      "display_name": "Qwen3-0.6B",
+      "provider": "Alibaba",
+      "provider_handle": "Qwen",
+      "modality": "chat",
+      "context_window": 4096,
+      "max_output_tokens": null,
+      "description": "Qwen3 is the latest generation of large language models in Q…",
+      "pricing": {
+        "input_per_1m_egp": 5,
+        "output_per_1m_egp": 10,
+        "cache_read_per_1m_egp": 0.5,
+        "cache_write_per_1m_egp": 0,
+        "cache_write_1h_per_1m_egp": 0
+      },
+      "engines": [
+        "vllm"
+      ],
+      "healthy_backends": 1,
+      "total_backends": 1,
+      "status": "live",
+      "source": "sovereign",
+      "weights_type": "open_weights",
+      "visibility": "public",
+      "card_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
+      "benchmarks": null,
+      "published_at": "2026-07-14T09:44:57.525136+00:00",
+      "deprecated_at": null,
+      "deprecation_notice": null,
+      "sunset_at": null,
+      "capabilities": {
+        "supports_streaming": true,
+        "supports_temperature": true,
+        "supports_tools": true,
+        "supports_json_schema": true
+      }
+    },
+    {
+      "id": "SovereignEG/embeddinggemma-300m",
+      "object": "model",
+      "owned_by": "SovereignEG",
+      "display_name": "embeddinggemma-300m",
+      "provider": "SovereignEG",
+      "provider_handle": "SovereignEG",
+      "modality": "embed",
+      "context_window": null,
+      "max_output_tokens": null,
+      "description": null,
+      "pricing": {
+        "input_per_1m_egp": 0.1,
+        "output_per_1m_egp": 0,
+        "cache_read_per_1m_egp": 0.01,
+        "cache_write_per_1m_egp": 0.13,
+        "cache_write_1h_per_1m_egp": 0.2
+      },
+      "engines": [
+        "vllm"
+      ],
+      "healthy_backends": 1,
+      "total_backends": 1,
+      "status": "live",
+      "source": "sovereign",
+      "weights_type": "open_weights",
+      "visibility": "public",
+      "card_url": null,
+      "benchmarks": null,
+      "published_at": "2026-10-25T13:55:06.583615+00:00",
+      "deprecated_at": null,
+      "deprecation_notice": null,
+      "sunset_at": null
+    }
+  ],
+  "credits": {
+    "balance_egp_micros": 20000000,
+    "balance_egp": 20,
+    "free_quota_remaining": 0,
+    "plan": "student",
+    "tier": "student",
+    "tier_display_name": "Student",
+    "rpm_limit": 20,
+    "base_rpm_limit": 1000,
+    "overdraft_floor_egp_micros": 0,
+    "overdraft_floor_egp": 0,
+    "kashier_checkout_enabled": true,
+    "expiring_credits": [
+      {
+        "amount_egp_micros": 20000000,
+        "amount_egp": 20,
+        "expires_at": "2026-11-28T21:59:59.999999Z"
+      }
+    ],
+    "armed_bonuses": [],
+    "promotional_egp_micros": 20000000,
+    "promotional_egp": 20,
+    "paid_egp_micros": 0,
+    "paid_egp": 0,
+    "model_credits": [],
+    "daily_allowance": {
+      "issued": true,
+      "daily_allowance_egp_micros": 24000000,
+      "daily_allowance_egp": 24,
+      "left_egp_micros": 24000000,
+      "left_egp": 24,
+      "resets_at": "2026-10-30T22:00:00Z",
+      "models": [
+        "SovereignEG/Qwen3.8-27B-FP8"
+      ],
+      "approx_daily_tokens": 1037613,
+      "approx_tokens_left": 1037613,
+      "approx_by_model": [
+        {
+          "model": "SovereignEG/Qwen3.8-27B-FP8",
+          "approx_daily_tokens": 1037613,
+          "approx_tokens_left": 1037613
+        }
+      ],
+      "program_ends_at": null,
+      "balance_fallback": false
+    },
+    "service_class": {
+      "class": "standard",
+      "reason": "none"
+    }
+  },
+  "usage": {
+    "period": "2026-10",
+    "period_start": "2026-09-30T21:00:00Z",
+    "total_tokens": 3787889,
+    "free_quota": 0,
+    "free_remaining": 0,
+    "plan": "student",
+    "tier": "student",
+    "tier_display_name": "Student",
+    "spend_egp_micros": 23986105,
+    "spend_egp": 23.986105
+  }
+}

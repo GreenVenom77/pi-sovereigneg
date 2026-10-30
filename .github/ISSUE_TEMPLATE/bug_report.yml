@@ -1,0 +1,26 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations: { required: true }
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `/sovereign status` (first line) and `pi --version`
+      placeholder: "pi-sovereigneg v0.1.0 · pi 1.x"
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: debug
+    attributes:
+      label: Debug info (optional)
+      description: Contents of `/sovereign raw` output. **Remove balances, org names and anything private first. Never paste your API key.**
