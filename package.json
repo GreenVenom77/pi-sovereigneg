@@ -1,7 +1,7 @@
 {
   "name": "pi-sovereigneg",
-  "version": "0.1.1",
-  "description": "SovereignEG for pi: one-step API-key setup, smart per-request model routing, free-allowance awareness, live EGP usage and a collapsible model picker. Unofficial and fully vibe-coded: read the source before use.",
+  "version": "0.2.0",
+  "description": "SovereignEG for pi: one-step API-key setup, smart per-request model routing by price, a live model list and prices read straight from the API (cached for offline use), free-allowance awareness, live EGP usage and a collapsible model picker. It never switches your model after an error. Unofficial and fully vibe-coded: read the source before use.",
   "type": "module",
   "license": "MIT",
   "author": "Hossam Walid",
@@ -51,5 +51,8 @@
     "@earendil-works/pi-tui": "*",
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
+  },
+  "overrides": {
+    "node-domexception": "npm:@nolyfill/domexception@^1.0.28"
   }
 }

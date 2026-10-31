@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { isolate, fakeApi, fakePi, fakeCtx, CORE_MODELS } from "./helpers.ts";
 
 const dir = isolate();
-writeFileSync(join(dir, "sovereigneg.json"), JSON.stringify({ statusRefreshSeconds: 0.05 })); // poll every 50 ms in tests
+writeFileSync(join(dir, "sovereigneg.json"), JSON.stringify({ statusRefreshSeconds: 0.05, idleRefreshSeconds: 0 })); // poll every 50 ms while working; no idle polling in tests
 const state = fakeApi(CORE_MODELS, { left: 40 });
 const { default: ext } = await import("../src/index.ts");
 const h = fakePi();
@@ -50,8 +50,12 @@ test("exact usage replaces the estimate when the message ends, and persists unti
 test("the router stops picking the free model as soon as the live estimate drains the allowance", async () => {
   const route = () => h.reg.virtual.route({ reason: "user", thinkingLevel: "high", messages: [{ role: "user", content: "rename this variable" }] }, ctx).model.id;
   assert.equal(route(), "SovereignEG/Qwen3.8-27B-FP8");
+  await h.reg.cmds.sovereign.handler("why", ctx);
+  assert.match(notes.at(-1)!, /free allowance/);
   await fire("message_end", { message: msg("SovereignEG/Qwen3.8-27B-FP8", "done", { usage: { cost: { total: 37 } } }) });
-  assert.equal(route(), "claude-haiku-5.5"); // only ~1 EGP left < minimum → paid cheapest
+  route(); // routes again with the drained allowance
+  await h.reg.cmds.sovereign.handler("why", ctx);
+  assert.doesNotMatch(notes.at(-1)!, /free allowance/, "only ~1 EGP left < minimum: no longer routed as free");
 });
 
 test("a server refresh replaces the local estimate", async () => {
@@ -73,4 +77,24 @@ test("credits are polled while the agent works, and polling stops afterwards", a
   await wait(200);
   assert.equal(calls, frozen, "no polling after agent_end");
   (globalThis as any).fetch = realFetch;
+});
+
+test("spend from subagents (no message events here) is picked up from the server and added to the session", async () => {
+  await h.reg.cmds.sovereign.handler("status", ctx); // settle baseline at the server's current number
+  const before = lastStatus();
+  const used = Number(/free used ([\d.]+)/.exec(before)?.[1] ?? 0);
+  state.left -= 3; // a subagent spent 3 EGP of allowance; no message_end fired in this process
+  await h.reg.cmds.sovereign.handler("status", ctx);
+  const after = Number(/free used ([\d.]+)/.exec(lastStatus())?.[1]);
+  assert.ok(Math.abs(after - used - 3) < 0.01, `free used should grow by 3, was ${used} → ${after}`);
+});
+
+test("spend already reported by message_end is not counted twice", async () => {
+  await h.reg.cmds.sovereign.handler("status", ctx);
+  const used = Number(/free used ([\d.]+)/.exec(lastStatus())?.[1]);
+  await fire("message_end", { message: msg("SovereignEG/Qwen3.8-27B-FP8", "done", { usage: { cost: { total: 1 } } }) });
+  state.left -= 1; // the server saw the same 1 EGP
+  await h.reg.cmds.sovereign.handler("status", ctx);
+  const after = Number(/free used ([\d.]+)/.exec(lastStatus())?.[1]);
+  assert.ok(Math.abs(after - used - 1) < 0.01, `expected +1, got ${after - used}`);
 });

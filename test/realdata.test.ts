@@ -5,12 +5,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isolate, fakeApi, fakePi, fakeCtx, model } from "./helpers.ts";
 
 const real = JSON.parse(readFileSync(new URL("./fixtures/real-api.json", import.meta.url), "utf8"));
 const dir = isolate();
+writeFileSync(join(dir, "sovereigneg.json"), JSON.stringify({ favorites: ["SovereignEG/Qwen3.8-27B-FP8", "SovereignEG/embeddinggemma-300m"] })); // /model lists only favorites
 
 // Real chat models + one big paid model so the router has an alternative to the free model
 const models = [...real.models, model("claude-haiku-5.5", 30.86, { provider: "Anthropic", owned_by: "Anthropic" })];
@@ -29,9 +30,7 @@ test("embedding models are excluded; chat models are mapped with real fields", (
   const q = h.provider().models.find((m: any) => m.id === "SovereignEG/Qwen3.8-27B-FP8");
   assert.equal(q.contextWindow, 131072);
   assert.equal(q.reasoning, true, "reasoning is detected from supported_parameters");
-  assert.equal(q.cost.input, 8.41);
-  assert.equal(q.cost.output, 67.29);
-  assert.equal(q.cost.cacheRead, 1.29, "real cache-read price is used");
+  assert.deepEqual(q.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, "pi's own cost counter stays at zero");
 });
 
 test("tiny / short-context models are never routed or recommended, even though they claim tool support", () => {
@@ -42,28 +41,29 @@ test("tiny / short-context models are never routed or recommended, even though t
   }
 });
 
-test("author comes from `provider` (Alibaba), not `owned_by` (SovereignEG)", async () => {
+test("SovereignEG-branded models group under SovereignEG; other models use their real author (`provider`)", async () => {
   let comp: any;
   const { ctx: c } = fakeCtx(h.reg, {
     ui: {
       custom: (f: any) =>
         new Promise((res) => {
           comp = f({ requestRender() {} }, { fg: (_: string, t: string) => t, bold: (t: string) => t }, null, res);
-          setTimeout(() => { comp.handleInput("\t"); comp.handleInput("\x1b"); }, 0); // Tab → Author view, Esc → close
+          setTimeout(() => { comp.handleInput("\t"); comp.handleInput("\t"); comp.handleInput("\x1b"); }, 0); // Favorites → Price → Author view, Esc → close
         }),
     },
   });
   await h.reg.cmds.sm.handler("", c);
   const screen = comp.render(100).join("\n");
   assert.match(screen, /\[Author\]/);
-  assert.match(screen, /Alibaba \(2\)/); // both Qwen models, grouped under their real author
-  assert.doesNotMatch(screen, /SovereignEG \(\d+\)/, "no group named after the host");
+  assert.match(screen, /SovereignEG \(1\)/); // SovereignEG/Qwen3.8-27B-FP8: provider is Alibaba, but it is SovereignEG-branded
+  assert.match(screen, /Alibaba \(1\)/); // Qwen/Qwen3-0.6B keeps its real author
+  assert.doesNotMatch(screen, /Alibaba \(2\)/, "the SovereignEG-branded Qwen is no longer counted under Alibaba");
 });
 
 test("footer shows live balance and the free allowance from the real credits shape", () => {
   assert.match(lastStatus(), /balance 20\.00 EGP/);
-  assert.match(lastStatus(), /free left 24\.0\/24 EGP \(100%\)/);
-  assert.match(lastStatus(), /rpm 0\/20/, "Student plan limit of 20 requests/min is surfaced");
+  assert.match(lastStatus(), /free left 1\.04M\/1\.04M tokens \(100%\)/, "free allowance is shown in tokens");
+  assert.doesNotMatch(lastStatus(), /rpm/);
 });
 
 test("the free Qwen model is used while the allowance has budget", () => {
@@ -71,26 +71,17 @@ test("the free Qwen model is used while the allowance has budget", () => {
   assert.equal(r.model.id, "SovereignEG/Qwen3.8-27B-FP8");
 });
 
-test("requests per minute are counted and the user is warned before hitting the plan limit", async () => {
-  const before = h.reg.hooks.before_provider_request[0];
-  const c = { ...ctx, model: { provider: "sovereigneg" } };
-  for (let i = 0; i < 15; i++) before({ payload: { model: "x", messages: [] } }, c);
-  await new Promise((r) => setTimeout(r, 220)); // footer repaints are throttled to one per 200 ms
-  before({ payload: { model: "x", messages: [] } }, c);
-  assert.match(lastStatus(), /rpm 16\/20/);
-  assert.ok(notes.some((n) => /Approaching your plan's rate limit: 16\/20/.test(n)), notes.join("|"));
-});
-
 test("/sovereign status prints plan, balance split, expiry, allowance tokens and monthly usage", async () => {
   notes.length = 0;
   await h.reg.cmds.sovereign.handler("status", ctx);
   const out = notes.join("\n");
-  assert.match(out, /Plan: Student · 20 requests\/min \(standard 1000\)/);
+  assert.match(out, /Plan: Student/);
   assert.match(out, /Balance: 20\.00 EGP \(promo 20\.00, paid 0\.00\)/);
   assert.match(out, /20 EGP expires 2026-11-28/);
   assert.match(out, /Free allowance: 24\.00\/24 EGP left ≈ 1\.04M tokens/);
   assert.match(out, /balance fallback is OFF/);
   assert.match(out, /This month \(2026-10\): 23\.99 EGP · 3\.79M tokens/);
+  assert.match(out, /Rate limit: 20 requests\/min \(plan base 1000\)/);
 });
 
 test("/sovereign raw redacts per-request ids", async () => {

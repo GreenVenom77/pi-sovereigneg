@@ -24,7 +24,11 @@ test("the top tier is never routed to the free model", () => {
 test("once the allowance is nearly used up, routing switches to paid models", async () => {
   state.left = 0.5;
   await h.reg.cmds.sovereign.handler("status", ctx); // forces a credits refresh
-  assert.equal(route("rename this variable"), "claude-haiku-5.5");
+  assert.equal(route("rename this variable"), "SovereignEG/Qwen3.8-27B-FP8"); // cheapest by price, now paid
+});
+
+test("today's free-allowance models (from /v1/credits, not a built-in list) appear in pi's /model", () => {
+  assert.ok(h.lastIds().includes("SovereignEG/Qwen3.8-27B-FP8"), h.lastIds().join(","));
 });
 
 test("footer shows the free allowance left in EGP and percent", () => {

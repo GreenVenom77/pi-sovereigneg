@@ -19,19 +19,25 @@ export interface PickerItem {
   ctx: number;
   inPrice: number | null;
   outPrice: number | null;
+  /** prompt-cache prices, EGP / 1M tokens (null = the API doesn't list one) */
+  cacheRead?: number | null;
+  cacheWrite?: number | null;
+  cacheWrite1h?: number | null;
   tools: boolean;
   reasoning: boolean;
   free: boolean;
   rec?: "economy" | "balanced" | "top";
+  /** free right now, but the allowance is below the router's buffer (minAllowanceLeftEgp): smart won't pick it on its own */
+  freeLow?: boolean;
   /** every backend is currently unhealthy */
   down?: boolean;
   /** SovereignEG has announced deprecation */
   deprecated?: boolean;
 }
 
-type View = "category" | "author" | "host" | "price";
-const VIEWS: View[] = ["category", "author", "host", "price"];
-const VIEW_LABEL: Record<View, string> = { category: "Category", author: "Author", host: "Host", price: "Price" };
+type View = "favorites" | "price" | "author" | "host";
+const VIEWS: View[] = ["favorites", "price", "author", "host"];
+const VIEW_LABEL: Record<View, string> = { favorites: "Favorites", price: "Price", author: "Author", host: "Host" };
 const VISIBLE_ROWS = 15;
 
 interface Group {
@@ -45,29 +51,30 @@ type Row =
 | { t: "item"; it: PickerItem; g: Group };
 
 const byPrice = (a: PickerItem, b: PickerItem) => (a.outPrice ?? 0) - (b.outPrice ?? 0) || a.id.localeCompare(b.id);
-const REC_ORDER = { economy: 0, balanced: 1, top: 2 } as const;
 
 function fmtCtx(n: number) {
   return n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(1)}M` : `${Math.round(n / 1000)}K`;
 }
-function fmtP(n: number | null) {
-  return n === null ? "?" : n < 10 ? n.toFixed(2) : n.toFixed(0);
+function fmtP(n: number | null | undefined) {
+  return n == null ? "–" : n.toFixed(2); // exactly as the pricing page lists it
+}
+/** One labelled price line: every number says what it is. Units (EGP per 1M tokens) are in the legend. */
+function fmtPrices(it: PickerItem) {
+  return `${fmtCtx(it.ctx)} ctx · in ${fmtP(it.inPrice)} · out ${fmtP(it.outPrice)} · cache r ${fmtP(it.cacheRead)} w ${fmtP(it.cacheWrite)}`;
 }
 
-function groupsFor(view: View, items: PickerItem[], favs: Set<string>): Group[] {
+function groupsFor(view: View, items: PickerItem[], favs: Set<string>, searching = false): Group[] {
   const map = new Map<string, Group>();
   const add = (key: string, label: string, it: PickerItem) => {
     if (!map.has(key)) map.set(key, { key, label, items: [] });
     map.get(key)!.items.push(it);
   };
 
-  if (view === "category") {
+  if (view === "favorites") {
+    // Only the starred models, unless you are searching: then the other matches follow, so typing a name always finds it.
     for (const it of items) {
       if (favs.has(it.id)) add("1fav", "★ Favorites", it);
-      else if (it.free) add("2free", "Free today (your daily allowance)", it);
-      else if (it.rec) add("3rec", "Recommended (best value / balanced / top quality)", it);
-      else if (it.tools) add("4agents", "Coding & agents (tool calling)", it);
-      else add("5chat", "Chat only (no tool calling)", it);
+      else if (searching) add("2other", "Other models", it);
     }
   } else if (view === "author") {
     for (const it of items) add(it.author, it.author, it);
@@ -76,17 +83,20 @@ function groupsFor(view: View, items: PickerItem[], favs: Set<string>): Group[] 
   } else {
     for (const it of items) {
       const p = it.outPrice;
-      if (p === null || p === 0) add("0", "Free / unpriced", it);
-      else if (p < 30) add("1", "Budget  (< 30 EGP / 1M out)", it);
-      else if (p < 300) add("2", "Mid-range  (30–300)", it);
-      else if (p < 1000) add("3", "Premium  (300–1000)", it);
-      else add("4", "Frontier  (≥ 1000)", it);
+      // A model that is free right now (covered by your free allowance, which still has budget) sits in the free group
+      // whatever its list price; once the allowance runs out it is no longer `free` and drops back into its price group.
+      if (it.free) add("0", "Free today (your daily allowance)", it);
+      else if (p === null || p === 0) add("1", "Free / unpriced", it);
+      else if (p < 30) add("2", "Budget  (< 30 EGP / 1M out)", it);
+      else if (p < 300) add("3", "Mid-range  (30–300)", it);
+      else if (p < 1000) add("4", "Premium  (300–1000)", it);
+      else add("5", "Frontier  (≥ 1000)", it);
     }
   }
 
   const groups = [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
   for (const g of groups) {
-    g.items.sort(view === "category" && g.key === "3rec" ? (a, b) => REC_ORDER[a.rec!] - REC_ORDER[b.rec!] || byPrice(a, b) : byPrice);
+    g.items.sort(byPrice);
   }
   return groups;
 }
@@ -95,15 +105,16 @@ function groupsFor(view: View, items: PickerItem[], favs: Set<string>): Group[] 
 export async function openPicker(
   ctx: any,
   items: PickerItem[],
-  opts: { favorites: Set<string>; onToggleFavorite: (id: string) => void },
+  opts: { favorites: Set<string>; onToggleFavorite: (id: string) => void; /** where the prices come from, when not fresh from the API */ note?: string },
 ): Promise<string | null> {
   // `ctx` is typed `any` here, so no type argument on the call; the result is cast instead.
   return ctx.ui.custom((tui: any, theme: any, _kb: any, done: (v: string | null) => void) => {
-    let view: View = "category";
+    // Start on Favorites when there are any; otherwise on Price so the first screen is never empty.
+    let view: View = items.some((it) => opts.favorites.has(it.id)) ? "favorites" : "price";
     let query = "";
     let cursor = 0;
     let top = 0;
-    const collapsed: Record<View, Set<string>> = { category: new Set(), author: new Set(), host: new Set(), price: new Set() };
+    const collapsed: Record<View, Set<string>> = { favorites: new Set(), price: new Set(), author: new Set(), host: new Set() };
     const initialized = new Set<View>();
     let rows: Row[] = [];
 
@@ -122,12 +133,12 @@ export async function openPicker(
     }
 
     function rebuild(keepKey?: string) {
-      const groups = groupsFor(view, filtered(), opener.favorites);
+      const groups = groupsFor(view, filtered(), opener.favorites, query.trim().length > 0);
       if (!initialized.has(view)) {
         initialized.add(view);
-        // Category view: open the first two groups; other views start fully collapsed (overview first)
-        groups.forEach((g, i) => {
-          if (!(view === "category" ? i < 2 : groups.length <= 3)) collapsed[view].add(g.key);
+        // Favorites opens its list; the other tabs start collapsed (overview first) unless they have three groups or fewer
+        groups.forEach((g) => {
+          if (!(view === "favorites" || groups.length <= 3)) collapsed[view].add(g.key);
         });
       }
       const searching = query.trim().length > 0;
@@ -154,7 +165,7 @@ export async function openPicker(
       const b: string[] = [];
       if (it.down) b.push("DOWN");
       if (it.deprecated) b.push("deprecated");
-      if (it.free) b.push("FREE");
+      if (it.free) b.push(it.freeLow ? "FREE (low)" : "FREE");
       if (it.rec) b.push(it.rec === "economy" ? "best value" : it.rec === "balanced" ? "balanced" : "top quality");
       if (it.reasoning) b.push("reasoning");
       if (!it.tools) b.push("no tools");
@@ -170,7 +181,7 @@ export async function openPicker(
       } else {
         const it = r.it;
         const fav = opener.favorites.has(it.id) ? "★ " : "  ";
-        text = `   ${fav}${it.id}  ${dim(`${fmtCtx(it.ctx)} · ${fmtP(it.inPrice)}/${fmtP(it.outPrice)} EGP`)}  ${muted(badges(it))}`;
+        text = `   ${fav}${it.id}  ${dim(fmtPrices(it))}  ${muted(badges(it))}`;
       }
       const prefix = selected ? accent("› ") : "  ";
       return truncateToWidth(prefix + text, width);
@@ -187,6 +198,7 @@ export async function openPicker(
         ),
       );
       lines.push(truncateToWidth(`${muted("Search:")} ${query}${accent("▏")}`, width));
+      lines.push(truncateToWidth(dim("EGP per 1M tokens · ctx = context window · in/out = input/output · cache r/w = cache read/write · – = not listed" + (opts.note ? ` · ${opts.note}` : "")), width));
       lines.push("");
 
       if (cursor < top) top = cursor;
@@ -195,11 +207,19 @@ export async function openPicker(
 
       if (top > 0) lines.push(dim(`  ↑ ${top} more`));
       if (!rows.length) lines.push(theme.fg("warning", "  No models match your search."));
+      else if (view === "favorites" && !rows.some((r) => r.t === "group")) {
+        lines.push(dim(query.trim() ? "  No models match your search." : "  No favorites yet. Press Ctrl+F on a model in any tab to star it."));
+      }
       rows.slice(top, top + VISIBLE_ROWS).forEach((r, i) => lines.push(lineFor(r, top + i === cursor, width)));
       const below = rows.length - (top + VISIBLE_ROWS);
       if (below > 0) lines.push(dim(`  ↓ ${below} more`));
 
       lines.push("");
+      const cur = rows[cursor];
+      if (cur?.t === "item") {
+        const it = cur.it;
+        lines.push(truncateToWidth(muted(`${it.name}: input ${fmtP(it.inPrice)} · output ${fmtP(it.outPrice)} · cache read ${fmtP(it.cacheRead)} · cache write ${fmtP(it.cacheWrite)} (1h ${fmtP(it.cacheWrite1h)}) EGP/1M`), width));
+      }
       lines.push(truncateToWidth(dim("↑↓ move · ←→ fold · Enter select · Tab group by · type to search · Ctrl+F ★ · Esc close"), width));
       return lines;
     }

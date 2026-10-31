@@ -21,14 +21,21 @@ test("registers a provider with /login support and a virtual 'smart' model", () 
   assert.deepEqual(h.reg.virtual.thinkingLevels, ["low", "medium", "high"]);
 });
 
-test("thinking level acts as a spend ceiling", () => {
+// Nothing is hard-coded: with no `tiers` override the router picks by price from what the API lists
+// (here cheapest = Qwen 15, then Haiku 30.86, Sonnet 617, Opus 1234).
+test("thinking level acts as a spend ceiling (picked by price from the API's models)", () => {
   assert.equal(route(HARD, "high").model.id, "claude-opus-5.5");
   assert.equal(route(HARD, "medium").model.id, "claude-sonnet-5.5");
-  assert.equal(route(HARD, "low").model.id, "claude-haiku-5.5");
+  assert.equal(route(HARD, "low").model.id, "SovereignEG/Qwen3.8-27B-FP8");
 });
 
 test("simple tasks stay cheap even with the highest ceiling", () => {
-  assert.equal(route("fix the typo in the README, quick one", "high").model.id, "claude-haiku-5.5");
+  assert.equal(route("fix the typo in the README, quick one", "high").model.id, "SovereignEG/Qwen3.8-27B-FP8");
+});
+
+test("the router may use any model the API lists: it registers the chosen one in pi on demand", () => {
+  route(HARD, "high");
+  assert.ok(h.lastIds().includes("claude-opus-5.5"), "listed while smart is using it");
 });
 
 test("tool-call continuations keep the same model (prompt cache)", () => {
@@ -40,21 +47,61 @@ test("short follow-ups keep the previous model", () => {
   assert.equal(route("continue", "high", { previous: prev("claude-sonnet-5.5") }).model.id, "claude-sonnet-5.5");
 });
 
-test("retry after a failure switches to a different model", () => {
-  const r = h.reg.virtual.route(
+const retry = (errorMessage: string, id = "claude-haiku-5.5") =>
+  h.reg.virtual.route(
     { reason: "retry", thinkingLevel: "high", messages: [{ role: "user", content: "x" }],
-      failed: { model: { provider: "sovereigneg", id: "claude-haiku-5.5" }, message: { errorMessage: "429 rate_limit_exceeded" } } },
+      failed: { model: { provider: "sovereigneg", id }, thinkingLevel: "low", message: { errorMessage } } },
     ctx,
   );
-  assert.notEqual(r.model.id, "claude-haiku-5.5");
+
+test("an error never switches the model: the retry stays on the same one", () => {
+  for (const err of ["503 service unavailable", "429: upstream provider throttled", "402 daily_allowance_exhausted", "model_not_found"]) {
+    assert.equal(retry(err).model.id, "claude-haiku-5.5", err);
+  }
 });
 
-test("hidden-thinking guard: adds reasoning_effort none for Claude 5.x only when unset", () => {
+test("gateway rate limit (rate_limit_exceeded) stays on the same model (per-key limit, keeps the prompt cache)", () => {
+  const r = retry('429: {"error":{"code":"rate_limit_exceeded"}}');
+  assert.equal(r.model.id, "claude-haiku-5.5");
+  assert.equal(r.thinkingLevel, "low");
+});
+
+test("allowance / concurrency 429s don't switch the model either", () => {
+  assert.equal(retry("429 concurrency_limit_exceeded rate_limit_exceeded").model.id, "claude-haiku-5.5");
+});
+
+test("a server-provided retry-after tops up pi's backoff, and abort ends the wait", async () => {
+  const ac = new AbortController();
+  const p = h.reg.virtual.route(
+    { reason: "retry", thinkingLevel: "high", signal: ac.signal, messages: [{ role: "user", content: "x" }],
+      failed: { model: { provider: "sovereigneg", id: "claude-haiku-5.5" }, message: { errorMessage: '429 rate_limit_exceeded {"retry_after": 30}' } } },
+    ctx,
+  );
+  assert.ok(p instanceof Promise, "waiting returns a promise");
+  const t0 = Date.now();
+  ac.abort();
+  assert.equal((await p).model.id, "claude-haiku-5.5");
+  assert.ok(Date.now() - t0 < 1000);
+});
+
+test("rate-limit notice names the plan limit and is shown once per burst", async () => {
+  const { ctx: c, notes } = fakeCtx(h.reg);
+  const onEnd = h.reg.hooks.message_end[0];
+  const msg = { message: { role: "assistant", provider: "sovereigneg", model: "x", stopReason: "error", errorMessage: "429 rate_limit_exceeded", usage: { cost: { total: 0 } } } };
+  await onEnd(msg, c);
+  await onEnd(msg, c);
+  const hits = notes.filter((n) => /Rate limited/.test(n));
+  assert.equal(hits.length, 1, notes.join("|"));
+  assert.match(hits[0], /same model/);
+});
+
+test("hidden-thinking guard: adds reasoning_effort none, only for models the API data marks as billed-but-hidden thinkers, and only when unset", () => {
   const guard = h.reg.hooks.before_provider_request[0];
   const c = { model: { provider: "sovereigneg" } };
   assert.equal(guard({ payload: { model: "claude-sonnet-5.5", messages: [] } }, c).reasoning_effort, "none");
-  assert.equal(guard({ payload: { model: "claude-sonnet-5.5", messages: [], reasoning_effort: "high" } }, c), undefined);
-  assert.equal(guard({ payload: { model: "gpt-oss-20b", messages: [] } }, c), undefined);
+  assert.equal(guard({ payload: { model: "claude-sonnet-5.5", messages: [], reasoning_effort: "high" } }, c), undefined, "user chose an effort");
+  assert.equal(guard({ payload: { model: "SovereignEG/Qwen3.8-27B-FP8", messages: [] } }, c), undefined, "shows its reasoning (include_reasoning): not hidden");
+  assert.equal(guard({ payload: { model: "not-in-the-catalog", messages: [] } }, c), undefined);
   assert.equal(guard({ payload: { model: "claude-sonnet-5.5", messages: [] } }, { model: { provider: "anthropic" } }), undefined);
 });
 
